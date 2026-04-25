@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n 'takePhoto\\\\|startRecording\\\\|stopRecording\\\\|onPhotoTaken\\\\|onVideoTaken\\\\|captureState$\\\\|CaptureRequest' '~/.pub-cache/hosted/pub.dev/camerawesome-2.5.0/lib/src/orchestrator/states/photo_camera_state.dart' '~/.pub-cache/hosted/pub.dev/camerawesome-2.5.0/lib/src/orchestrator/states/video_camera_state.dart' '~/.pub-cache/hosted/pub.dev/camerawesome-2.5.0/lib/src/orchestrator/states/video_camera_recording_state.dart')",
+      "Bash(grep -n \"MediaCapture\\\\|captureState\\\\$\\\\|\\\\.path\\\\b\\\\|XFile\\\\|filePath\" ~/.pub-cache/hosted/pub.dev/camerawesome-2.5.0/lib/src/orchestrator/models/medias/capture/media_capture.dart)"
+    ]
+  }
+}
