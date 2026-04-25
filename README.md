@@ -66,6 +66,14 @@ Future<void> _criarStory(BuildContext context) async {
 
 É só isso. O package cuida de toda a navegação, edição e exportação.
 
+#### Usando `forRoot: true` (navegador raiz)
+
+Se o app usa navegadores aninhados — por exemplo um `BottomNavigationBar` ou `NavigationShell` — as telas do story seriam empilhadas dentro do tab atual e não cobririam a barra de navegação. Passe `forRoot: true` para usar o navegador raiz e exibir o story em tela cheia:
+
+```dart
+final File? file = await StoryCreator.open(context, forRoot: true);
+```
+
 ---
 
 ### Fluxo manual (opcional)
@@ -171,7 +179,7 @@ controller.undo();
 
 | Classe | Descrição |
 |---|---|
-| `StoryCreator` | Entry point — `open(context)` executa o fluxo completo e retorna `File?` |
+| `StoryCreator` | Entry point — `open(context, {forRoot})` executa o fluxo completo e retorna `File?`; `forRoot: true` usa o navegador raiz |
 | `StoryCapturePage` | Tela de captura; retorna `StoryMedia?` |
 | `StoryEditorPage` | Tela de edição; recebe `StoryMedia`, retorna `File?` |
 | `StoryMedia` | Contém o `File`, `StoryType` (photo/video), duração e thumbnail |
