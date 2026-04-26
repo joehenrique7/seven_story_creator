@@ -59,23 +59,128 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _topBar(),
-            Expanded(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: 9 / 16,
-                  child: RepaintBoundary(key: _repaintKey, child: _canvas()),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Full-screen canvas
+          RepaintBoundary(key: _repaintKey, child: _canvas()),
+
+          // Gradient overlay at top for legibility
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 160,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.black54, Colors.transparent],
                 ),
               ),
             ),
-            if (_tool == _Tool.filter) _filterPanel(),
-            if (_tool == _Tool.draw) _drawColorBar(),
-            _bottomBar(),
-          ],
-        ),
+          ),
+
+          // Gradient overlay at bottom for legibility
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 180,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Colors.black54, Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+
+          // Top-left: close button
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(left: 4, top: 4),
+                child: _circleIconButton(
+                  icon: Icons.close,
+                  onTap: () => Navigator.of(context).pop(null),
+                ),
+              ),
+            ),
+          ),
+
+          // Top-right: vertical tool buttons
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 10, top: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _circleIconButton(
+                      icon: Icons.text_fields,
+                      onTap: _addText,
+                      tooltip: 'Texto',
+                    ),
+                    const SizedBox(height: 12),
+                    _circleIconButton(
+                      icon: Icons.emoji_emotions_outlined,
+                      onTap: _addSticker,
+                      tooltip: 'Adesivo',
+                    ),
+                    const SizedBox(height: 12),
+                    _circleIconButton(
+                      icon: Icons.brush,
+                      onTap: () => setState(
+                        () => _tool = _tool == _Tool.draw ? _Tool.none : _Tool.draw,
+                      ),
+                      active: _tool == _Tool.draw,
+                      tooltip: 'Desenhar',
+                    ),
+                    const SizedBox(height: 12),
+                    _circleIconButton(
+                      icon: Icons.tune,
+                      onTap: () => setState(
+                        () => _tool = _tool == _Tool.filter ? _Tool.none : _Tool.filter,
+                      ),
+                      active: _tool == _Tool.filter,
+                      tooltip: 'Filtro',
+                    ),
+                    const SizedBox(height: 12),
+                    ListenableBuilder(
+                      listenable: _ctrl,
+                      builder: (_, __) => _circleIconButton(
+                        icon: Icons.undo,
+                        onTap: _ctrl.canUndo ? _ctrl.undo : null,
+                        tooltip: 'Desfazer',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Bottom panels (filter / draw color) + publish button
+          SafeArea(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_tool == _Tool.filter) _filterPanel(),
+                  if (_tool == _Tool.draw) _drawColorBar(),
+                  _publishBar(),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -85,25 +190,21 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Background media with color filter
         FilterLayer(
           brightness: _brightness,
           contrast: _contrast,
           saturation: _saturation,
           child: _mediaBackground(),
         ),
-        // Drawing strokes — renders under stickers/text; captures gestures when active
         DrawingLayer(
           controller: _ctrl,
           isActive: drawMode,
           currentColor: _drawColor,
         ),
-        // Sticker layer — blocked while drawing
         IgnorePointer(
           ignoring: drawMode,
           child: StickerLayer(controller: _ctrl),
         ),
-        // Text layer — blocked while drawing
         IgnorePointer(
           ignoring: drawMode,
           child: TextLayer(controller: _ctrl, onEditRequest: _pushTextEditor),
@@ -125,99 +226,81 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
   }
 
   // ---------------------------------------------------------------------------
-  // Bars
+  // UI components
 
-  Widget _topBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
-            onPressed: () => Navigator.of(context).pop(null),
-          ),
-          const Spacer(),
-          ListenableBuilder(
-            listenable: _ctrl,
-            builder: (_, __) => IconButton(
-              icon: Icon(
-                Icons.undo,
-                color: _ctrl.canUndo ? Colors.white : Colors.white30,
-              ),
-              onPressed: _ctrl.canUndo ? _ctrl.undo : null,
-            ),
-          ),
-          const SizedBox(width: 8),
-          _exporting
-              ? const SizedBox(
-                  width: 80,
-                  child: Center(
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    ),
-                  ),
-                )
-              : TextButton(
-                  onPressed: _onDone,
-                  child: const Text(
-                    'Concluir',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-        ],
+  Widget _circleIconButton({
+    required IconData icon,
+    VoidCallback? onTap,
+    bool active = false,
+    String? tooltip,
+  }) {
+    final enabled = onTap != null;
+    final btn = GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: active ? Colors.white24 : Colors.black38,
+        ),
+        child: Icon(
+          icon,
+          color: enabled ? Colors.white : Colors.white30,
+          size: 22,
+        ),
       ),
     );
+    if (tooltip != null) {
+      return Tooltip(message: tooltip, child: btn);
+    }
+    return btn;
   }
 
-  Widget _bottomBar() {
+  Widget _publishBar() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _ToolBtn(
-            icon: Icons.text_fields,
-            label: 'Texto',
-            active: false,
-            onTap: _addText,
-          ),
-          _ToolBtn(
-            icon: Icons.emoji_emotions_outlined,
-            label: 'Adesivo',
-            active: false,
-            onTap: _addSticker,
-          ),
-          _ToolBtn(
-            icon: Icons.brush,
-            label: 'Desenhar',
-            active: _tool == _Tool.draw,
-            onTap: () => setState(
-              () => _tool = _tool == _Tool.draw ? _Tool.none : _Tool.draw,
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+      child: _exporting
+          ? const SizedBox(
+              height: 52,
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                ),
+              ),
+            )
+          : SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(26),
+                  ),
+                  elevation: 0,
+                ),
+                icon: const Icon(Icons.send_rounded),
+                label: const Text(
+                  'Publicar',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                onPressed: _onDone,
+              ),
             ),
-          ),
-          _ToolBtn(
-            icon: Icons.tune,
-            label: 'Filtro',
-            active: _tool == _Tool.filter,
-            onTap: () => setState(
-              () => _tool = _tool == _Tool.filter ? _Tool.none : _Tool.filter,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
   Widget _filterPanel() {
     return Container(
-      color: Colors.black54,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(12),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -260,8 +343,12 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
       Colors.orange,
     ];
     return Container(
-      color: Colors.black54,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: colors.map((c) {
@@ -353,21 +440,17 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
 
   Future<File> _exportCanvas() async {
     if (widget.media.type == StoryType.photo) {
-      // Bake media + filter + all overlays into a single image.
       final boundary = _repaintKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary == null) throw StateError('RepaintBoundary not mounted');
       final image = await boundary.toImage(pixelRatio: 2.5);
-      final byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) throw StateError('toByteData returned null');
       final dir = await getTemporaryDirectory();
       final tmp = File('${dir.path}/${const Uuid().v4()}.png')
         ..writeAsBytesSync(byteData.buffer.asUint8List());
       return _compressor.compressImage(tmp);
     } else {
-      // Video: return compressed source video.
-      // Overlays are not baked — use StoryPreviewWidget for playback with elements.
       return _compressor.compressVideo(widget.media.file);
     }
   }
@@ -415,47 +498,6 @@ class _VideoBackgroundState extends State<_VideoBackground> {
         width: _vc.value.size.width,
         height: _vc.value.size.height,
         child: VideoPlayer(_vc),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-
-class _ToolBtn extends StatelessWidget {
-  const _ToolBtn({
-    required this.icon,
-    required this.label,
-    required this.active,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: active
-                ? BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(12),
-                  )
-                : null,
-            child: Icon(icon, color: Colors.white, size: 26),
-          ),
-          const SizedBox(height: 4),
-          Text(label,
-              style: const TextStyle(color: Colors.white70, fontSize: 11)),
-        ],
       ),
     );
   }

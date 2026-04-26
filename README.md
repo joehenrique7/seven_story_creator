@@ -6,7 +6,7 @@ Flutter package para criação de stories no estilo Instagram: captura ou seleci
 
 - **Captura** — câmera fullscreen com foto e vídeo (pressão longa para gravar, barra de progresso, flash, câmera frontal/traseira)
 - **Galeria** — selecionar foto ou vídeo existente
-- **Editor** — canvas em camadas com:
+- **Editor** — canvas full screen em camadas com controles sobrepostos (estilo Instagram):
   - Textos (cor, tamanho, fonte, sombra, alinhamento) — arrastar, escalar, rotar, duplo toque para editar
   - Adesivos emoji — arrastar, escalar, rotar
   - Desenho livre (cor, espessura)
@@ -49,7 +49,7 @@ dependencies:
 
 ### Forma recomendada — fluxo completo em uma linha
 
-`StoryCreator.open()` gerencia tudo: abre a câmera, ao capturar/selecionar uma mídia abre automaticamente o editor, e quando o usuário tocar em **Concluir** devolve o `File` exportado. Retorna `null` se o usuário cancelar em qualquer etapa.
+`StoryCreator.open()` gerencia tudo: abre a câmera, ao capturar/selecionar uma mídia abre automaticamente o editor, e quando o usuário tocar em **Publicar** devolve o `File` exportado. Retorna `null` se o usuário cancelar em qualquer etapa.
 
 ```dart
 import 'package:seven_story_creator/seven_story_creator.dart';
@@ -116,7 +116,20 @@ await uploadStory(file);
 | Duplo toque em texto | Abre editor de texto |
 | Pressão longa | Remove elemento |
 
-### Editor — barra de ferramentas
+### Editor — layout full screen
+
+O editor ocupa a tela inteira com a mídia como fundo (imagem ou vídeo em `BoxFit.cover`). Os controles são sobrepostos (overlay) com gradientes de legibilidade:
+
+- **Canto superior esquerdo** — botão X para fechar/cancelar
+- **Coluna superior direita** — botões circulares de ferramenta:
+  - Texto (Aa)
+  - Adesivo (emoji)
+  - Desenhar (pincel)
+  - Filtro (sliders)
+  - Desfazer (↩)
+- **Rodapé** — painel de filtro ou paleta de cores (quando ativos), seguido do botão **Publicar**
+
+### Editor — ferramentas
 
 | Botão | Função |
 |---|---|
@@ -125,7 +138,7 @@ await uploadStory(file);
 | **Desenhar** | Ativa modo pincel (toque novamente para desativar) |
 | **Filtro** | Exibe sliders de brilho, contraste e saturação |
 | **Desfazer** (↩) | Desfaz a última ação |
-| **Concluir** | Exporta e retorna o arquivo |
+| **Publicar** | Exporta e retorna o arquivo |
 
 ---
 

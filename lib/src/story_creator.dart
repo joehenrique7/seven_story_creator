@@ -9,7 +9,7 @@ import 'editor/story_editor_page.dart';
 /// Main entry point for the story creation flow.
 ///
 /// Call [StoryCreator.open] to launch capture → edit → export in sequence.
-/// Returns the exported [File] when the user taps "Concluir", or null if
+/// Returns the exported [File] when the user taps "Publicar", or null if
 /// they cancel at any step.
 ///
 /// ```dart
