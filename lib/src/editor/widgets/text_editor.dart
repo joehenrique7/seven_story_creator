@@ -40,7 +40,19 @@ class _TextEditorState extends State<TextEditor> {
     Colors.orange,
   ];
 
-  static const _fonts = [null, 'Serif', 'Monospace', 'SansSerif'];
+  static const _fontOptions = [
+    _FontOption(label: 'Moderno', family: null),
+    _FontOption(label: 'Clássico', family: 'Serif'),
+    _FontOption(label: 'Mono', family: 'Monospace'),
+    _FontOption(label: 'Sans', family: 'SansSerif'),
+  ];
+
+  static const _alignCycle = [
+    TextAlign.left,
+    TextAlign.center,
+    TextAlign.right,
+    TextAlign.justify,
+  ];
 
   @override
   void initState() {
@@ -72,27 +84,28 @@ class _TextEditorState extends State<TextEditor> {
           children: [
             _buildTopBar(),
             Expanded(
-              child: Center(
-                child: TextField(
-                  controller: _textCtrl,
-                  autofocus: true,
-                  maxLines: null,
-                  textAlign: _align,
-                  style: TextStyle(
-                    color: _color,
-                    fontSize: _fontSize,
-                    fontFamily: _fontFamily,
-                    shadows: _hasShadow
-                        ? const [
-                            Shadow(blurRadius: 4, color: Colors.black54),
-                          ]
-                        : null,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    hintText: 'Type something...',
-                    hintStyle: TextStyle(color: Colors.white54),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 24),
+              child: GestureDetector(
+                onTap: () => FocusScope.of(context).requestFocus(FocusNode()),
+                child: Center(
+                  child: TextField(
+                    controller: _textCtrl,
+                    autofocus: true,
+                    maxLines: null,
+                    textAlign: _align,
+                    style: TextStyle(
+                      color: _color,
+                      fontSize: _fontSize,
+                      fontFamily: _fontFamily,
+                      shadows: _hasShadow
+                          ? const [Shadow(blurRadius: 4, color: Colors.black54)]
+                          : null,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: 'Digite algo...',
+                      hintStyle: TextStyle(color: Colors.white54),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 24),
+                    ),
                   ),
                 ),
               ),
@@ -112,13 +125,14 @@ class _TextEditorState extends State<TextEditor> {
         children: [
           TextButton(
             onPressed: widget.onCancel,
-            child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
           ),
           TextButton(
             onPressed: _confirm,
-            child: const Text('Done',
-                style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Concluir',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -127,29 +141,89 @@ class _TextEditorState extends State<TextEditor> {
 
   Widget _buildToolbar() {
     return Container(
-      color: Colors.black45,
-      padding: const EdgeInsets.all(8),
+      decoration: const BoxDecoration(
+        color: Colors.black54,
+        border: Border(top: BorderSide(color: Colors.white12, width: 0.5)),
+      ),
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 14),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Color row
-          SizedBox(
-            height: 36,
+          _buildFontFamilyRow(),
+          const SizedBox(height: 12),
+          _buildActionsRow(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFontFamilyRow() {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        itemCount: _fontOptions.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final opt = _fontOptions[i];
+          final selected = _fontFamily == opt.family;
+          return GestureDetector(
+            onTap: () => setState(() => _fontFamily = opt.family),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                color: selected ? Colors.white : Colors.white10,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: selected ? Colors.white : Colors.white30,
+                  width: 1.5,
+                ),
+              ),
+              child: Text(
+                opt.label,
+                style: TextStyle(
+                  fontFamily: opt.family,
+                  fontSize: 14,
+                  color: selected ? Colors.black : Colors.white,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildActionsRow() {
+    return Row(
+      children: [
+        // Color circles
+        Expanded(
+          child: SizedBox(
+            height: 34,
             child: ListView(
               scrollDirection: Axis.horizontal,
               children: _colors.map((c) {
+                final selected = _color == c;
                 return GestureDetector(
                   onTap: () => setState(() => _color = c),
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 100),
+                    width: selected ? 34 : 28,
+                    height: selected ? 34 : 28,
+                    margin: EdgeInsets.symmetric(
+                      horizontal: 3,
+                      vertical: selected ? 0 : 3,
+                    ),
                     decoration: BoxDecoration(
                       color: c,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: _color == c ? Colors.white : Colors.transparent,
-                        width: 2,
+                        color: selected ? Colors.white : Colors.white38,
+                        width: selected ? 2.5 : 1,
                       ),
                     ),
                   ),
@@ -157,60 +231,56 @@ class _TextEditorState extends State<TextEditor> {
               }).toList(),
             ),
           ),
-          const SizedBox(height: 8),
-          // Font size slider
-          Row(
-            children: [
-              const Icon(Icons.text_fields, color: Colors.white, size: 16),
-              Expanded(
-                child: Slider(
-                  value: _fontSize,
-                  min: 14,
-                  max: 80,
-                  onChanged: (v) => setState(() => _fontSize = v),
-                ),
-              ),
-            ],
+        ),
+        const SizedBox(width: 8),
+        // Font size -
+        _ActionButton(
+          icon: Icons.remove,
+          onTap: () => setState(
+            () => _fontSize = (_fontSize - 2).clamp(10.0, 80.0),
           ),
-          // Font + align + shadow row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              // Font cycle
-              TextButton(
-                onPressed: () {
-                  final idx = _fonts.indexOf(_fontFamily);
-                  setState(() {
-                    _fontFamily = _fonts[(idx + 1) % _fonts.length];
-                  });
-                },
-                child: Text(
-                  _fontFamily ?? 'Default',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-              ),
-              // Align
-              IconButton(
-                icon: Icon(_alignIcon(), color: Colors.white),
-                onPressed: () {
-                  setState(() {
-                    _align = TextAlign.values[
-                        (_align.index + 1) % TextAlign.values.length];
-                  });
-                },
-              ),
-              // Shadow
-              IconButton(
-                icon: Icon(
-                  _hasShadow ? Icons.wb_shade : Icons.wb_shade_outlined,
-                  color: Colors.white,
-                ),
-                onPressed: () => setState(() => _hasShadow = !_hasShadow),
-              ),
-            ],
+        ),
+        const SizedBox(width: 2),
+        SizedBox(
+          width: 32,
+          child: Text(
+            _fontSize.round().toString(),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 2),
+        // Font size +
+        _ActionButton(
+          icon: Icons.add,
+          onTap: () => setState(
+            () => _fontSize = (_fontSize + 2).clamp(10.0, 80.0),
+          ),
+        ),
+        const SizedBox(width: 6),
+        // Align
+        _ActionButton(
+          icon: _alignIcon(),
+          active: true,
+          onTap: () {
+            setState(() {
+              final idx = _alignCycle.indexOf(_align);
+              _align = _alignCycle[(idx + 1) % _alignCycle.length];
+            });
+          },
+        ),
+        const SizedBox(width: 6),
+        // Shadow
+        _ActionButton(
+          icon: Icons.auto_awesome,
+          active: _hasShadow,
+          onTap: () => setState(() => _hasShadow = !_hasShadow),
+        ),
+      ],
     );
   }
 
@@ -248,5 +318,48 @@ class _TextEditorState extends State<TextEditor> {
           align: _align,
         );
     widget.onConfirm(el);
+  }
+}
+
+class _FontOption {
+  const _FontOption({required this.label, required this.family});
+  final String label;
+  final String? family;
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.onTap,
+    this.active = false,
+  });
+
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: active ? Colors.white : Colors.white10,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: active ? Colors.white : Colors.white30,
+            width: 1.5,
+          ),
+        ),
+        child: Icon(
+          icon,
+          color: active ? Colors.black : Colors.white,
+          size: 18,
+        ),
+      ),
+    );
   }
 }
