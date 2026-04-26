@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../models/story_element.dart';
 import '../story_editor_controller.dart';
@@ -61,13 +62,15 @@ class _TextLayerState extends State<TextLayer> {
           child: Text(
             el.text,
             textAlign: el.align,
-            style: TextStyle(
-              color: el.color,
-              fontSize: el.fontSize,
-              fontFamily: el.fontFamily,
-              shadows: el.hasShadow
-                  ? const [Shadow(blurRadius: 4, color: Colors.black54)]
-                  : null,
+            style: _applyFont(
+              el.fontFamily,
+              TextStyle(
+                color: el.color,
+                fontSize: el.fontSize,
+                shadows: el.hasShadow
+                    ? const [Shadow(blurRadius: 4, color: Colors.black54)]
+                    : null,
+              ),
             ),
           ),
         ),
@@ -99,5 +102,14 @@ class _TextLayerState extends State<TextLayer> {
       onScaleEnd: (_) => _baselines.remove(el.id),
       child: content,
     );
+  }
+
+  static TextStyle _applyFont(String? family, TextStyle base) {
+    if (family == null) return base;
+    try {
+      return GoogleFonts.getFont(family, textStyle: base);
+    } catch (_) {
+      return base;
+    }
   }
 }

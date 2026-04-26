@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:video_player/video_player.dart';
 
 import '../capture/models/story_media.dart';
@@ -107,6 +108,15 @@ class _StoryPreviewWidgetState extends State<StoryPreviewWidget> {
     );
   }
 
+  static TextStyle _applyFont(String? family, TextStyle base) {
+    if (family == null) return base;
+    try {
+      return GoogleFonts.getFont(family, textStyle: base);
+    } catch (_) {
+      return base;
+    }
+  }
+
   List<Widget> _buildTextElements(BoxConstraints constraints) {
     return widget.elements.whereType<TextElement>().map((el) {
       final left = el.position.dx * constraints.maxWidth;
@@ -121,13 +131,15 @@ class _StoryPreviewWidgetState extends State<StoryPreviewWidget> {
             child: Text(
               el.text,
               textAlign: el.align,
-              style: TextStyle(
-                color: el.color,
-                fontSize: el.fontSize,
-                fontFamily: el.fontFamily,
-                shadows: el.hasShadow
-                    ? const [Shadow(blurRadius: 4, color: Colors.black54)]
-                    : null,
+              style: _applyFont(
+                el.fontFamily,
+                TextStyle(
+                  color: el.color,
+                  fontSize: el.fontSize,
+                  shadows: el.hasShadow
+                      ? const [Shadow(blurRadius: 4, color: Colors.black54)]
+                      : null,
+                ),
               ),
             ),
           ),

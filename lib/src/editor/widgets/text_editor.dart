@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 
 import '../models/story_element.dart';
@@ -41,10 +42,14 @@ class _TextEditorState extends State<TextEditor> {
   ];
 
   static const _fontOptions = [
-    _FontOption(label: 'Moderno', family: null),
-    _FontOption(label: 'Clássico', family: 'Serif'),
-    _FontOption(label: 'Mono', family: 'Monospace'),
-    _FontOption(label: 'Sans', family: 'SansSerif'),
+    _FontOption(label: 'Padrão', family: null),
+    _FontOption(label: 'Roboto', family: 'Roboto'),
+    _FontOption(label: 'Playfair', family: 'Playfair Display'),
+    _FontOption(label: 'Mono', family: 'Roboto Mono'),
+    _FontOption(label: 'Oswald', family: 'Oswald'),
+    _FontOption(label: 'Pacifico', family: 'Pacifico'),
+    _FontOption(label: 'Dancing', family: 'Dancing Script'),
+    _FontOption(label: 'Bebas', family: 'Bebas Neue'),
   ];
 
   static const _alignCycle = [
@@ -92,13 +97,15 @@ class _TextEditorState extends State<TextEditor> {
                     autofocus: true,
                     maxLines: null,
                     textAlign: _align,
-                    style: TextStyle(
-                      color: _color,
-                      fontSize: _fontSize,
-                      fontFamily: _fontFamily,
-                      shadows: _hasShadow
-                          ? const [Shadow(blurRadius: 4, color: Colors.black54)]
-                          : null,
+                    style: _applyFont(
+                      _fontFamily,
+                      TextStyle(
+                        color: _color,
+                        fontSize: _fontSize,
+                        shadows: _hasShadow
+                            ? const [Shadow(blurRadius: 4, color: Colors.black54)]
+                            : null,
+                      ),
                     ),
                     decoration: const InputDecoration(
                       border: InputBorder.none,
@@ -183,11 +190,13 @@ class _TextEditorState extends State<TextEditor> {
               ),
               child: Text(
                 opt.label,
-                style: TextStyle(
-                  fontFamily: opt.family,
-                  fontSize: 14,
-                  color: selected ? Colors.black : Colors.white,
-                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                style: _applyFont(
+                  opt.family,
+                  TextStyle(
+                    fontSize: 14,
+                    color: selected ? Colors.black : Colors.white,
+                    fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                  ),
                 ),
               ),
             ),
@@ -282,6 +291,15 @@ class _TextEditorState extends State<TextEditor> {
         ),
       ],
     );
+  }
+
+  static TextStyle _applyFont(String? family, TextStyle base) {
+    if (family == null) return base;
+    try {
+      return GoogleFonts.getFont(family, textStyle: base);
+    } catch (_) {
+      return base;
+    }
   }
 
   IconData _alignIcon() {
