@@ -1,6 +1,6 @@
 name: seven_story_creator
 description: "Seven Story creator: capture, edit, preview, export."
-version: 0.1.5
+version: 0.1.6
 homepage:
 
 environment:
@@ -13,7 +13,7 @@ dependencies:
   camerawesome: ^2.5.0
   photo_manager: ^3.9.0
   video_player: ^2.9.5
-  ffmpeg_kit_flutter_new: ^4.1.0
+  video_compress: ^3.1.2
   flutter_image_compress: ^2.4.0
   path_provider: ^2.1.4
   uuid: ^4.5.3

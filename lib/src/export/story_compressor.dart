@@ -1,11 +1,9 @@
-import 'dart:async';
 import 'dart:io';
 
-import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:video_compress/video_compress.dart';
 
 class StoryCompressException implements Exception {
   StoryCompressException(this.message);
@@ -41,43 +39,18 @@ class StoryCompressor {
 
   Future<File> compressVideo(
     File source, {
-    int targetWidth = 720,
-    String preset = 'veryfast',
-    int crf = 28,
+    VideoQuality quality = VideoQuality.Res1280x720Quality,
   }) async {
-    final destPath = await _buildOutputPath('mp4');
-    final completer = Completer<File>();
-
-    await FFmpegKit.executeAsync(
-      '-i "${source.path}" '
-      '-vcodec libx264 -crf $crf -preset $preset '
-      '-vf scale=$targetWidth:-2 '
-      '-acodec aac -b:a 128k '
-      '-movflags +faststart '
-      '"$destPath"',
-      (session) async {
-        final rc = await session.getReturnCode();
-        if (ReturnCode.isSuccess(rc)) {
-          final output = File(destPath);
-          if (await output.exists()) {
-            completer.complete(output);
-          } else {
-            completer.completeError(
-              StoryCompressException('Output file not found after compression.'),
-            );
-          }
-        } else {
-          final logs = await session.getLogsAsString();
-          final partial = File(destPath);
-          if (await partial.exists()) await partial.delete();
-          completer.completeError(
-            StoryCompressException('FFmpeg failed. Logs:\n$logs'),
-          );
-        }
-      },
+    final info = await VideoCompress.compressVideo(
+      source.path,
+      quality: quality,
+      deleteOrigin: false,
+      includeAudio: true,
     );
-
-    return completer.future;
+    if (info == null || info.file == null) {
+      throw StoryCompressException('Video compression returned null.');
+    }
+    return info.file!;
   }
 
   Future<String> _buildOutputPath(String extension) async {

@@ -227,9 +227,7 @@ class DrawingElement extends StoryElement {
   @override
   Map<String, dynamic> toJson() => {
         ..._baseJson(),
-        'points': points
-            .map((o) => {'dx': o.dx, 'dy': o.dy})
-            .toList(),
+        'points': points.map((o) => {'dx': o.dx, 'dy': o.dy}).toList(),
         'colorValue': color.value,
         'strokeWidth': strokeWidth,
         'style': style.name,
@@ -243,9 +241,7 @@ class DrawingElement extends StoryElement {
         ),
         scale: json['scale'] as double,
         rotation: json['rotation'] as double,
-        points: (json['points'] as List)
-            .map((p) => Offset(p['dx'] as double, p['dy'] as double))
-            .toList(),
+        points: (json['points'] as List).map((p) => Offset(p['dx'] as double, p['dy'] as double)).toList(),
         color: Color(json['colorValue'] as int),
         strokeWidth: json['strokeWidth'] as double,
         style: StrokeStyle.values.byName(json['style'] as String),
