@@ -7,6 +7,13 @@ import 'package:photo_manager/photo_manager.dart';
 import '../models/story_media.dart';
 
 class GalleryService {
+  /// Ordena os assets com os mais recentes primeiro.
+  static final FilterOptionGroup _recentFirst = FilterOptionGroup(
+    orders: [
+      const OrderOption(type: OrderOptionType.createDate, asc: false),
+    ],
+  );
+
   Future<PermissionState> requestPermission() =>
       PhotoManager.requestPermissionExtend();
 
@@ -16,9 +23,12 @@ class GalleryService {
         state == PermissionState.restricted) {
       return [];
     }
+    // `onlyAll: true` retorna o álbum "Recentes" (todas as fotos/vídeos);
+    // sem isso, `albums.first` podia cair num álbum qualquer do usuário.
     return PhotoManager.getAssetPathList(
       type: RequestType.common,
-      onlyAll: false,
+      onlyAll: true,
+      filterOption: _recentFirst,
     );
   }
 
