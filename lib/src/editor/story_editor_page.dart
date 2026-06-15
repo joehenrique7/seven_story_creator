@@ -46,6 +46,9 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
   double _saturation = 1.0;
   bool _exporting = false;
 
+  // Baseline de escala/rotação do elemento selecionado durante a pinça.
+  ({double scale, double rotation})? _xfBaseline;
+
   @override
   void dispose() {
     _ctrl.dispose();
@@ -201,6 +204,14 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
           isActive: drawMode,
           currentColor: _drawColor,
         ),
+        // Camada de gesto que transforma o elemento selecionado. Fica acima do
+        // fundo e abaixo dos elementos, captando a pinça (escala/rotação) e o
+        // arraste em qualquer ponto da tela — não só sobre o elemento, que era
+        // o que tornava a pinça inviável em textos/emojis pequenos.
+        IgnorePointer(
+          ignoring: drawMode,
+          child: _transformGestureLayer(),
+        ),
         IgnorePointer(
           ignoring: drawMode,
           child: StickerLayer(controller: _ctrl),
@@ -210,6 +221,38 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
           child: TextLayer(controller: _ctrl, onEditRequest: _pushTextEditor),
         ),
       ],
+    );
+  }
+
+  Widget _transformGestureLayer() {
+    return LayoutBuilder(
+      builder: (context, constraints) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onScaleStart: (_) {
+          final el = _ctrl.selectedElement;
+          if (el != null) {
+            _xfBaseline = (scale: el.scale, rotation: el.rotation);
+          }
+        },
+        onScaleUpdate: (d) {
+          final el = _ctrl.selectedElement;
+          final b = _xfBaseline;
+          if (el == null || b == null) return;
+          _ctrl.updateElement(
+            el.id,
+            el.copyWith(
+              scale: (b.scale * d.scale).clamp(0.1, 10.0),
+              rotation: b.rotation + d.rotation,
+              position: el.position +
+                  Offset(
+                    d.focalPointDelta.dx / constraints.maxWidth,
+                    d.focalPointDelta.dy / constraints.maxHeight,
+                  ),
+            ),
+          );
+        },
+        onScaleEnd: (_) => _xfBaseline = null,
+      ),
     );
   }
 

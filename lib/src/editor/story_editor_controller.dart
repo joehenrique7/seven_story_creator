@@ -43,12 +43,14 @@ class StoryEditorController extends ChangeNotifier {
   void addText(TextElement element) {
     pushHistory();
     _elements.add(element);
+    _selectedId = element.id;
     notifyListeners();
   }
 
   void addSticker(StickerElement element) {
     pushHistory();
     _elements.add(element);
+    _selectedId = element.id;
     notifyListeners();
   }
 

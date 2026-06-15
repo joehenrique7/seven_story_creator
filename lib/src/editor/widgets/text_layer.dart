@@ -5,7 +5,8 @@ import '../models/story_element.dart';
 import '../story_editor_controller.dart';
 
 /// Interactive layer for [TextElement]s on the editor canvas.
-/// Drag to move, pinch to scale/rotate, double-tap to edit, long-press to remove.
+/// Tap to select, double-tap to edit, long-press to remove. Mover/escalar/rotacionar
+/// é tratado pela camada de gesto do canvas, sobre o elemento selecionado.
 class TextLayer extends StatefulWidget {
   const TextLayer({
     super.key,
@@ -21,8 +22,6 @@ class TextLayer extends StatefulWidget {
 }
 
 class _TextLayerState extends State<TextLayer> {
-  final Map<String, ({double scale, double rotation})> _baselines = {};
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -36,7 +35,7 @@ class _TextLayerState extends State<TextLayer> {
                 .map((el) => Positioned(
                       left: el.position.dx * constraints.maxWidth,
                       top: el.position.dy * constraints.maxHeight,
-                      child: _buildItem(el, constraints),
+                      child: _buildItem(el),
                     ))
                 .toList(),
           ),
@@ -45,7 +44,7 @@ class _TextLayerState extends State<TextLayer> {
     );
   }
 
-  Widget _buildItem(TextElement el, BoxConstraints constraints) {
+  Widget _buildItem(TextElement el) {
     final selected = widget.controller.selectedId == el.id;
     final content = Transform.rotate(
       angle: el.rotation,
@@ -78,28 +77,9 @@ class _TextLayerState extends State<TextLayer> {
     );
 
     return GestureDetector(
-      onTap: () => widget.controller.selectElement(el.id),
+      onTapDown: (_) => widget.controller.selectElement(el.id),
       onDoubleTap: () => widget.onEditRequest(el),
       onLongPress: () => widget.controller.removeElement(el.id),
-      onScaleStart: (_) =>
-          _baselines[el.id] = (scale: el.scale, rotation: el.rotation),
-      onScaleUpdate: (d) {
-        final b = _baselines[el.id];
-        if (b == null) return;
-        widget.controller.updateElement(
-          el.id,
-          el.copyWith(
-            scale: (b.scale * d.scale).clamp(0.1, 10.0),
-            rotation: b.rotation + d.rotation,
-            position: el.position +
-                Offset(
-                  d.focalPointDelta.dx / constraints.maxWidth,
-                  d.focalPointDelta.dy / constraints.maxHeight,
-                ),
-          ),
-        );
-      },
-      onScaleEnd: (_) => _baselines.remove(el.id),
       child: content,
     );
   }

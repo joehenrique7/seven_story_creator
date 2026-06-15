@@ -18,9 +18,6 @@ class StickerLayer extends StatefulWidget {
 }
 
 class _StickerLayerState extends State<StickerLayer> {
-  // Per-element baseline for multi-touch gestures
-  final Map<String, ({double scale, double rotation})> _gestureBaselines = {};
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -39,7 +36,7 @@ class _StickerLayerState extends State<StickerLayer> {
                 return Positioned(
                   left: left,
                   top: top,
-                  child: _buildSticker(el, constraints),
+                  child: _buildSticker(el),
                 );
               }).toList(),
             );
@@ -49,39 +46,29 @@ class _StickerLayerState extends State<StickerLayer> {
     );
   }
 
-  Widget _buildSticker(StickerElement el, BoxConstraints constraints) {
+  Widget _buildSticker(StickerElement el) {
+    final selected = !widget.readOnly && widget.controller.selectedId == el.id;
     final child = Transform.rotate(
       angle: el.rotation,
-      child: Text(
-        el.emoji,
-        style: TextStyle(fontSize: el.size * el.scale),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: selected
+            ? BoxDecoration(
+                border: Border.all(color: Colors.white70),
+                borderRadius: BorderRadius.circular(4),
+              )
+            : null,
+        child: Text(
+          el.emoji,
+          style: TextStyle(fontSize: el.size * el.scale),
+        ),
       ),
     );
 
     if (widget.readOnly) return child;
 
     return GestureDetector(
-      onTap: () => widget.controller.selectElement(el.id),
-      onScaleStart: (_) {
-        _gestureBaselines[el.id] = (scale: el.scale, rotation: el.rotation);
-      },
-      onScaleUpdate: (d) {
-        final baseline = _gestureBaselines[el.id];
-        if (baseline == null) return;
-        widget.controller.updateElement(
-          el.id,
-          el.copyWith(
-            scale: (baseline.scale * d.scale).clamp(0.1, 10.0),
-            rotation: baseline.rotation + d.rotation,
-            position: el.position +
-                Offset(
-                  d.focalPointDelta.dx / constraints.maxWidth,
-                  d.focalPointDelta.dy / constraints.maxHeight,
-                ),
-          ),
-        );
-      },
-      onScaleEnd: (_) => _gestureBaselines.remove(el.id),
+      onTapDown: (_) => widget.controller.selectElement(el.id),
       onLongPress: () => widget.controller.removeElement(el.id),
       child: child,
     );
