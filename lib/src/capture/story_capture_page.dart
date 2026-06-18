@@ -135,13 +135,12 @@ class _StoryCapturePageState extends State<StoryCapturePage> {
   Future<void> _onMediaFromGallery() async {
     final albums = await _gallery.fetchAlbums();
     if (!mounted || albums.isEmpty) return;
-    final assets = await _gallery.fetchAssets(albums.first);
-    if (!mounted || assets.isEmpty) return;
 
     final selected = await showModalBottomSheet<AssetEntity>(
       context: context,
-      backgroundColor: Colors.black,
-      builder: (_) => _GallerySheet(assets: assets, gallery: _gallery),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _GallerySheet(album: albums.first, gallery: _gallery),
     );
     if (!mounted || selected == null) return;
 
@@ -253,39 +252,125 @@ class _GalleryThumbState extends State<_GalleryThumb> {
 
 // ---------------------------------------------------------------------------
 
-class _GallerySheet extends StatelessWidget {
-  const _GallerySheet({required this.assets, required this.gallery});
+class _GallerySheet extends StatefulWidget {
+  const _GallerySheet({required this.album, required this.gallery});
 
-  final List<AssetEntity> assets;
+  final AssetPathEntity album;
   final GalleryService gallery;
 
   @override
+  State<_GallerySheet> createState() => _GallerySheetState();
+}
+
+class _GallerySheetState extends State<_GallerySheet> {
+  static const int _pageSize = 60;
+
+  final List<AssetEntity> _assets = [];
+  int _page = 0;
+  bool _loading = false;
+  bool _hasMore = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading || !_hasMore) return;
+    _loading = true;
+    final batch = await widget.gallery.fetchAssets(
+      widget.album,
+      page: _page,
+      pageSize: _pageSize,
+    );
+    if (!mounted) return;
+    setState(() {
+      _assets.addAll(batch);
+      _page++;
+      _hasMore = batch.length == _pageSize;
+      _loading = false;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(4),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-      ),
-      itemCount: assets.length,
-      itemBuilder: (context, i) {
-        final asset = assets[i];
-        return GestureDetector(
-          onTap: () => Navigator.of(context).pop(asset),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _AssetThumb(asset: asset, size: const ThumbnailSize(200, 200)),
-              if (asset.type == AssetType.video)
-                const Align(
-                  alignment: Alignment.bottomRight,
-                  child: Padding(
-                    padding: EdgeInsets.all(4),
-                    child: Icon(Icons.videocam, color: Colors.white, size: 18),
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          child: ColoredBox(
+            color: Colors.black,
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white30,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-            ],
+                Expanded(
+                  child: GridView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(4),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 2,
+                      mainAxisSpacing: 2,
+                    ),
+                    itemCount: _assets.length + (_hasMore ? 1 : 0),
+                    itemBuilder: (context, i) {
+                      if (i >= _assets.length) {
+                        _loadMore();
+                        return const ColoredBox(
+                          color: Colors.black26,
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white54,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      final asset = _assets[i];
+                      return GestureDetector(
+                        onTap: () => Navigator.of(context).pop(asset),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            _AssetThumb(
+                              asset: asset,
+                              size: const ThumbnailSize(200, 200),
+                            ),
+                            if (asset.type == AssetType.video)
+                              const Align(
+                                alignment: Alignment.bottomRight,
+                                child: Padding(
+                                  padding: EdgeInsets.all(4),
+                                  child: Icon(Icons.videocam,
+                                      color: Colors.white, size: 18),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
