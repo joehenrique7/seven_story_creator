@@ -18,6 +18,9 @@ class StickerLayer extends StatefulWidget {
 }
 
 class _StickerLayerState extends State<StickerLayer> {
+  // Baseline de escala/rotação capturado no início da pinça sobre o adesivo.
+  ({double scale, double rotation})? _xfBaseline;
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -36,7 +39,7 @@ class _StickerLayerState extends State<StickerLayer> {
                 return Positioned(
                   left: left,
                   top: top,
-                  child: _buildSticker(el),
+                  child: _buildSticker(el, constraints),
                 );
               }).toList(),
             );
@@ -46,7 +49,7 @@ class _StickerLayerState extends State<StickerLayer> {
     );
   }
 
-  Widget _buildSticker(StickerElement el) {
+  Widget _buildSticker(StickerElement el, BoxConstraints constraints) {
     final selected = !widget.readOnly && widget.controller.selectedId == el.id;
     final child = Transform.rotate(
       angle: el.rotation,
@@ -70,6 +73,32 @@ class _StickerLayerState extends State<StickerLayer> {
     return GestureDetector(
       onTapDown: (_) => widget.controller.selectElement(el.id),
       onLongPress: () => widget.controller.removeElement(el.id),
+      // Mover (1 dedo) / redimensionar / rotacionar (2 dedos) começando em cima
+      // do próprio emoji. onScale* cobre também o arraste de um dedo via
+      // focalPointDelta, então não precisamos de onPan (que conflitaria).
+      onScaleStart: (_) {
+        widget.controller.selectElement(el.id);
+        _xfBaseline = (scale: el.scale, rotation: el.rotation);
+      },
+      onScaleUpdate: (d) {
+        final b = _xfBaseline;
+        final current =
+            widget.controller.selectedElement as StickerElement?;
+        if (b == null || current == null || current.id != el.id) return;
+        widget.controller.updateElement(
+          el.id,
+          current.copyWith(
+            scale: (b.scale * d.scale).clamp(0.1, 10.0),
+            rotation: b.rotation + d.rotation,
+            position: current.position +
+                Offset(
+                  d.focalPointDelta.dx / constraints.maxWidth,
+                  d.focalPointDelta.dy / constraints.maxHeight,
+                ),
+          ),
+        );
+      },
+      onScaleEnd: (_) => _xfBaseline = null,
       child: child,
     );
   }
