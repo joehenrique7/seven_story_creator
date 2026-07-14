@@ -46,8 +46,10 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
   double _saturation = 1.0;
   bool _exporting = false;
 
-  // Baseline de escala/rotação do elemento selecionado durante a pinça.
-  ({double scale, double rotation})? _xfBaseline;
+  // Zoom/pan da foto de fundo, aplicado com pinça sobre a área vazia do canvas.
+  double _bgScale = 1.0;
+  Offset _bgOffset = Offset.zero;
+  ({double scale, Offset offset})? _bgBaseline;
 
   @override
   void dispose() {
@@ -111,6 +113,29 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
                 child: _circleIconButton(
                   icon: Icons.close,
                   onTap: () => Navigator.of(context).pop(null),
+                ),
+              ),
+            ),
+          ),
+
+          // Top-center: excluir o elemento selecionado
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: ListenableBuilder(
+                  listenable: _ctrl,
+                  builder: (_, __) {
+                    final id = _ctrl.selectedId;
+                    if (id == null) return const SizedBox.shrink();
+                    return _circleIconButton(
+                      icon: Icons.delete_outline,
+                      onTap: () => _ctrl.removeElement(id),
+                      tooltip: 'Excluir',
+                      background: Colors.red,
+                    );
+                  },
                 ),
               ),
             ),
@@ -193,24 +218,33 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
     return Stack(
       fit: StackFit.expand,
       children: [
+        // Fundo (só visual): foto/vídeo com filtro + zoom/pan aplicado.
         FilterLayer(
           brightness: _brightness,
           contrast: _contrast,
           saturation: _saturation,
-          child: _mediaBackground(),
+          child: ClipRect(
+            child: Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..translate(_bgOffset.dx, _bgOffset.dy)
+                ..scale(_bgScale),
+              child: _mediaBackground(),
+            ),
+          ),
         ),
         DrawingLayer(
           controller: _ctrl,
           isActive: drawMode,
           currentColor: _drawColor,
         ),
-        // Camada de gesto que transforma o elemento selecionado. Fica acima do
-        // fundo e abaixo dos elementos, captando a pinça (escala/rotação) e o
-        // arraste em qualquer ponto da tela — não só sobre o elemento, que era
-        // o que tornava a pinça inviável em textos/emojis pequenos.
+        // Gesto do fundo: pinça dá zoom/pan na foto e um toque na área vazia
+        // deseleciona o elemento ativo. Fica ABAIXO dos elementos (translúcida),
+        // então tocar em cima de um texto/emoji manipula o elemento, não a foto —
+        // e o toque na área vazia cai aqui.
         IgnorePointer(
           ignoring: drawMode,
-          child: _transformGestureLayer(),
+          child: _bgGestureLayer(),
         ),
         IgnorePointer(
           ignoring: drawMode,
@@ -224,36 +258,37 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
     );
   }
 
-  Widget _transformGestureLayer() {
+  Widget _bgGestureLayer() {
     return LayoutBuilder(
-      builder: (context, constraints) => GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onScaleStart: (_) {
-          final el = _ctrl.selectedElement;
-          if (el != null) {
-            _xfBaseline = (scale: el.scale, rotation: el.rotation);
-          }
-        },
-        onScaleUpdate: (d) {
-          final el = _ctrl.selectedElement;
-          final b = _xfBaseline;
-          if (el == null || b == null) return;
-          _ctrl.updateElement(
-            el.id,
-            el.copyWith(
-              scale: (b.scale * d.scale).clamp(0.1, 10.0),
-              rotation: b.rotation + d.rotation,
-              position: el.position +
-                  Offset(
-                    d.focalPointDelta.dx / constraints.maxWidth,
-                    d.focalPointDelta.dy / constraints.maxHeight,
-                  ),
-            ),
-          );
-        },
-        onScaleEnd: (_) => _xfBaseline = null,
-      ),
+      builder: (context, constraints) {
+        final size = Size(constraints.maxWidth, constraints.maxHeight);
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => _ctrl.selectElement(null),
+          onScaleStart: (_) =>
+              _bgBaseline = (scale: _bgScale, offset: _bgOffset),
+          onScaleUpdate: (d) => _onBgScaleUpdate(d, size),
+          onScaleEnd: (_) => _bgBaseline = null,
+        );
+      },
     );
+  }
+
+  void _onBgScaleUpdate(ScaleUpdateDetails d, Size size) {
+    final b = _bgBaseline;
+    if (b == null) return;
+    final newScale = (b.scale * d.scale).clamp(1.0, 4.0);
+    // Limita o pan para a foto não escapar das bordas do canvas.
+    final maxX = (newScale - 1) * size.width / 2;
+    final maxY = (newScale - 1) * size.height / 2;
+    final raw = _bgOffset + d.focalPointDelta;
+    setState(() {
+      _bgScale = newScale;
+      _bgOffset = Offset(
+        raw.dx.clamp(-maxX, maxX),
+        raw.dy.clamp(-maxY, maxY),
+      );
+    });
   }
 
   Widget _mediaBackground() {
@@ -276,6 +311,7 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
     VoidCallback? onTap,
     bool active = false,
     String? tooltip,
+    Color? background,
   }) {
     final enabled = onTap != null;
     final btn = GestureDetector(
@@ -285,7 +321,7 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
         height: 44,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: active ? Colors.white24 : Colors.black38,
+          color: background ?? (active ? Colors.white24 : Colors.black38),
         ),
         child: Icon(
           icon,
