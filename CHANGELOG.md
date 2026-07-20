@@ -1,3 +1,7 @@
+## 0.1.12
+
+* Melhoria de UX: a permissão de fotos deixou de ser solicitada automaticamente ao abrir a câmera de story. Agora o diálogo do sistema só aparece quando o usuário toca no atalho da galeria. A miniatura da galeria só é pré-carregada quando a permissão já foi concedida (via `GalleryService.hasPermission`, que consulta o estado sem disparar o prompt).
+
 ## 0.1.5
 
 * Corrigido: fontes selecionadas no editor agora são aplicadas corretamente no texto — nomes genéricos (`Serif`, `Monospace`) foram substituídos por Google Fonts reais, resolvendo o problema de renderização especialmente no iOS.

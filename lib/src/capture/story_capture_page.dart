@@ -221,6 +221,7 @@ class _GalleryThumbState extends State<_GalleryThumb> {
   }
 
   Future<void> _loadLatest() async {
+    if (!await widget.gallery.hasPermission() || !mounted) return;
     final albums = await widget.gallery.fetchAlbums();
     if (albums.isEmpty || !mounted) return;
     final assets = await widget.gallery.fetchAssets(albums.first, pageSize: 1);

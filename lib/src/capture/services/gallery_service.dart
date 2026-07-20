@@ -17,6 +17,14 @@ class GalleryService {
   Future<PermissionState> requestPermission() =>
       PhotoManager.requestPermissionExtend();
 
+  Future<bool> hasPermission() async {
+    final state = await PhotoManager.getPermissionState(
+      requestOption: const PermissionRequestOption(),
+    );
+    return state == PermissionState.authorized ||
+        state == PermissionState.limited;
+  }
+
   Future<List<AssetPathEntity>> fetchAlbums() async {
     final state = await requestPermission();
     if (state == PermissionState.denied ||

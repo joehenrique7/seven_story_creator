@@ -1,6 +1,6 @@
 name: seven_story_creator
 description: "Seven Story creator: capture, edit, preview, export."
-version: 0.1.11
+version: 0.1.12
 homepage:
 
 environment:
