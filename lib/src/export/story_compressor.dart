@@ -39,7 +39,7 @@ class StoryCompressor {
 
   Future<File> compressVideo(
     File source, {
-    VideoQuality quality = VideoQuality.Res1280x720Quality,
+    VideoQuality quality = VideoQuality.Res1920x1080Quality,
   }) async {
     final info = await VideoCompress.compressVideo(
       source.path,

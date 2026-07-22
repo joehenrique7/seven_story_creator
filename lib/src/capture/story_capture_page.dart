@@ -202,6 +202,18 @@ class _StoryCapturePageState extends State<StoryCapturePage> {
 
     final media = await _gallery.toStoryMedia(selected);
     if (!mounted || media == null) return;
+    if (media.type == StoryType.video &&
+        media.duration != null &&
+        media.duration! > _controller.maxRecordingDuration) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'O vídeo é muito longo (máximo de ${_controller.maxRecordingDuration.inSeconds} segundos).',
+          ),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop(media);
   }
 }

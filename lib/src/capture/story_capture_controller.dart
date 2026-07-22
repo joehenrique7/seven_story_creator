@@ -12,7 +12,7 @@ enum StoryFlashMode { off, auto, on, always }
 
 class StoryCaptureController extends ChangeNotifier {
   StoryCaptureController({
-    this.maxRecordingDuration = const Duration(seconds: 15),
+    this.maxRecordingDuration = const Duration(seconds: 90),
     this.onMaxDurationReached,
   });
 
