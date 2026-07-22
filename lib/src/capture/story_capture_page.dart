@@ -8,6 +8,7 @@ import 'models/story_media.dart';
 import 'services/gallery_service.dart';
 import 'story_camera_widget.dart';
 import 'story_capture_controller.dart';
+import 'story_trimmer_page.dart';
 
 enum _CameraAccess { checking, granted, denied }
 
@@ -202,18 +203,20 @@ class _StoryCapturePageState extends State<StoryCapturePage> {
 
     final media = await _gallery.toStoryMedia(selected);
     if (!mounted || media == null) return;
+
+    // Vídeo maior que a duração máxima de um story → o usuário escolhe qual
+    // janela publicar na régua de corte (estilo Instagram).
     if (media.type == StoryType.video &&
         media.duration != null &&
-        media.duration! > _controller.maxRecordingDuration) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'O vídeo é muito longo (máximo de ${_controller.maxRecordingDuration.inSeconds} segundos).',
-          ),
-        ),
+        media.duration! > kMaxStoryVideoDuration) {
+      final trimmed = await Navigator.of(context).push<StoryMedia?>(
+        MaterialPageRoute(builder: (_) => StoryTrimmerPage(media: media)),
       );
+      if (!mounted || trimmed == null) return;
+      Navigator.of(context).pop(trimmed);
       return;
     }
+
     Navigator.of(context).pop(media);
   }
 }

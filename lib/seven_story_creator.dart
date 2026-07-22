@@ -7,6 +7,7 @@ export 'src/capture/services/gallery_service.dart';
 export 'src/capture/story_camera_widget.dart';
 export 'src/capture/story_capture_controller.dart';
 export 'src/capture/story_capture_page.dart';
+export 'src/capture/story_trimmer_page.dart';
 
 // Editor — models & controller
 export 'src/editor/models/story_element.dart';
