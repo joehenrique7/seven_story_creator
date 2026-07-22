@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart';
 
 import 'models/story_media.dart';
 import 'services/gallery_service.dart';
 import 'story_camera_widget.dart';
 import 'story_capture_controller.dart';
+
+enum _CameraAccess { checking, granted, denied }
 
 class StoryCapturePage extends StatefulWidget {
   const StoryCapturePage({super.key});
@@ -19,6 +22,7 @@ class StoryCapturePage extends StatefulWidget {
 class _StoryCapturePageState extends State<StoryCapturePage> {
   late final StoryCaptureController _controller;
   final GalleryService _gallery = GalleryService();
+  _CameraAccess _access = _CameraAccess.checking;
 
   @override
   void initState() {
@@ -28,6 +32,15 @@ class _StoryCapturePageState extends State<StoryCapturePage> {
         // stopRecording is already called by the controller; pop result.
       },
     );
+    _ensurePermissions();
+  }
+
+  Future<void> _ensurePermissions() async {
+    final statuses = await [Permission.camera, Permission.microphone].request();
+    if (!mounted) return;
+    final granted = (statuses[Permission.camera]?.isGranted ?? false) &&
+        (statuses[Permission.microphone]?.isGranted ?? false);
+    setState(() => _access = granted ? _CameraAccess.granted : _CameraAccess.denied);
   }
 
   @override
@@ -40,13 +53,56 @@ class _StoryCapturePageState extends State<StoryCapturePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          StoryCameraWidget(controller: _controller),
-          SafeArea(child: _buildOverlay()),
-        ],
-      ),
+      body: switch (_access) {
+        _CameraAccess.checking => const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+        _CameraAccess.denied => SafeArea(child: _buildPermissionDenied()),
+        _CameraAccess.granted => Stack(
+            fit: StackFit.expand,
+            children: [
+              StoryCameraWidget(controller: _controller),
+              SafeArea(child: _buildOverlay()),
+            ],
+          ),
+      },
+    );
+  }
+
+  Widget _buildPermissionDenied() {
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 28),
+              onPressed: () => Navigator.of(context).pop(null),
+            ),
+          ),
+        ),
+        const Spacer(),
+        const Icon(Icons.no_photography, color: Colors.white54, size: 56),
+        const SizedBox(height: 16),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            'Precisamos de acesso à câmera e ao microfone para criar seu story.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white, fontSize: 16, height: 1.4),
+          ),
+        ),
+        const SizedBox(height: 24),
+        TextButton(
+          onPressed: openAppSettings,
+          child: const Text(
+            'Abrir configurações',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const Spacer(),
+      ],
     );
   }
 
