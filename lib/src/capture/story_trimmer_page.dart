@@ -1,33 +1,37 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:easy_video_editor/easy_video_editor.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
+import 'package:video_compress/video_compress.dart';
 import 'package:video_player/video_player.dart';
 
 import 'models/story_media.dart';
 
 /// Duração máxima de um story em vídeo. Vídeos mais longos passam pelo
-/// [StoryTrimmerPage] para o usuário escolher qual janela de [maxDuration]
-/// segundos publicar (o servidor a fatia em clipes de 15s).
+/// [StoryTrimmerPage] para o usuário escolher qual janela publicar (o servidor
+/// a fatia em clipes de 15s).
 const Duration kMaxStoryVideoDuration = Duration(seconds: 60);
+
+/// Duração mínima de um trecho de story em vídeo.
+const Duration kMinStoryVideoDuration = Duration(seconds: 15);
 
 /// Tela estilo Instagram para escolher qual trecho de um vídeo longo publicar.
 ///
 /// Mostra o preview do vídeo e uma régua de miniaturas abaixo, com uma janela
-/// arrastável de [maxDuration] de largura. Ao confirmar, recorta fisicamente o
-/// vídeo (via `easy_video_editor`, sem ffmpeg) e retorna um [StoryMedia] já
-/// cortado. Retorna null se o usuário voltar.
+/// redimensionável (de [minDuration] a [maxDuration]) que pode ser arrastada.
+/// Ao confirmar, recorta fisicamente o vídeo (via `video_compress`) e retorna um
+/// [StoryMedia] já cortado. Retorna null se o usuário voltar.
 class StoryTrimmerPage extends StatefulWidget {
   const StoryTrimmerPage({
     super.key,
     required this.media,
+    this.minDuration = kMinStoryVideoDuration,
     this.maxDuration = kMaxStoryVideoDuration,
   });
 
   final StoryMedia media;
+  final Duration minDuration;
   final Duration maxDuration;
 
   @override
@@ -37,17 +41,17 @@ class StoryTrimmerPage extends StatefulWidget {
 class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
   static const int _thumbCount = 10;
   static const double _stripHeight = 56;
-  static const double _handleWidth = 12;
+  static const double _handleWidth = 16;
 
   late final VideoPlayerController _preview;
   bool _ready = false;
   bool _exporting = false;
 
   Duration _total = Duration.zero;
-  late Duration _window;
   Duration _start = Duration.zero;
+  late Duration _end;
 
-  final List<File?> _thumbs = List.filled(_thumbCount, null);
+  final List<Uint8List?> _thumbs = List.filled(_thumbCount, null);
 
   @override
   void initState() {
@@ -60,8 +64,13 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
     await _preview.initialize();
     if (!mounted) return;
 
-    _total = widget.media.duration ?? _preview.value.duration;
-    _window = _total < widget.maxDuration ? _total : widget.maxDuration;
+    // Duração real decodificada é mais confiável que o metadado do asset.
+    _total = _preview.value.duration;
+    if (_total <= Duration.zero) {
+      _total = widget.media.duration ?? widget.maxDuration;
+    }
+    _start = Duration.zero;
+    _end = _total < widget.maxDuration ? _total : widget.maxDuration;
 
     await _preview.setLooping(false);
     await _preview.setVolume(1);
@@ -76,8 +85,7 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
   void _loopWithinWindow() {
     if (!_ready || _exporting) return;
     final pos = _preview.value.position;
-    final end = _start + _window;
-    if (pos >= end || pos < _start) {
+    if (pos >= _end || pos < _start) {
       _preview.seekTo(_start);
     }
   }
@@ -90,14 +98,13 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
     for (var i = 0; i < _thumbCount; i++) {
       final positionMs = (totalMs * i / _thumbCount).round();
       try {
-        final out = await VideoEditorBuilder(videoPath: path).generateThumbnail(
-          positionMs: positionMs,
-          quality: 60,
-          width: 120,
-          height: 200,
+        final bytes = await VideoCompress.getByteThumbnail(
+          path,
+          quality: 50,
+          position: positionMs,
         );
         if (!mounted) return;
-        if (out != null) setState(() => _thumbs[i] = File(out));
+        if (bytes != null) setState(() => _thumbs[i] = bytes);
       } catch (_) {
         // Miniatura é decorativa; ignora falhas pontuais.
       }
@@ -111,62 +118,88 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
     super.dispose();
   }
 
-  void _onWindowDrag(double dx, double stripWidth) {
-    if (_total <= _window) return;
-    final selectable = _total - _window;
-    final deltaMs = (dx / stripWidth) * _total.inMilliseconds;
-    final nextMs = (_start.inMilliseconds + deltaMs)
-        .clamp(0, selectable.inMilliseconds)
-        .round();
-    setState(() => _start = Duration(milliseconds: nextMs));
+  // --- Manipulação da janela -------------------------------------------------
+
+  Duration _pxToDuration(double px, double stripWidth) {
+    if (stripWidth <= 0) return Duration.zero;
+    return Duration(milliseconds: (px / stripWidth * _total.inMilliseconds).round());
+  }
+
+  void _move(double dx, double stripWidth) {
+    final delta = _pxToDuration(dx, stripWidth);
+    var newStart = _start + delta;
+    final length = _end - _start;
+    if (newStart < Duration.zero) newStart = Duration.zero;
+    if (newStart + length > _total) newStart = _total - length;
+    setState(() {
+      _start = newStart;
+      _end = newStart + length;
+    });
     _preview.seekTo(_start);
   }
 
+  void _resizeStart(double dx, double stripWidth) {
+    var newStart = _start + _pxToDuration(dx, stripWidth);
+    if (newStart < Duration.zero) newStart = Duration.zero;
+    if (_end - newStart < widget.minDuration) newStart = _end - widget.minDuration;
+    if (_end - newStart > widget.maxDuration) newStart = _end - widget.maxDuration;
+    setState(() => _start = newStart);
+    _preview.seekTo(_start);
+  }
+
+  void _resizeEnd(double dx, double stripWidth) {
+    var newEnd = _end + _pxToDuration(dx, stripWidth);
+    if (newEnd > _total) newEnd = _total;
+    if (newEnd - _start < widget.minDuration) newEnd = _start + widget.minDuration;
+    if (newEnd - _start > widget.maxDuration) newEnd = _start + widget.maxDuration;
+    setState(() => _end = newEnd);
+    _preview.seekTo(_start);
+  }
+
+  // --- Corte -----------------------------------------------------------------
+
   Future<void> _confirm() async {
     if (_exporting) return;
-
-    // Não precisa cortar se o vídeo inteiro já cabe na janela.
-    if (_total <= widget.maxDuration) {
-      if (mounted) Navigator.of(context).pop(widget.media);
-      return;
-    }
 
     setState(() => _exporting = true);
     await _preview.pause();
 
     try {
-      final dir = await getTemporaryDirectory();
-      final outPath = '${dir.path}/${const Uuid().v4()}.mp4';
-      final start = _start.inMilliseconds;
-      final end = (_start + _window).inMilliseconds;
+      final startSec = _start.inMilliseconds / 1000.0;
+      final durationSec = (_end - _start).inMilliseconds / 1000.0;
 
-      final trimmed = await VideoEditorBuilder(videoPath: widget.media.file.path)
-          .trim(startTimeMs: start, endTimeMs: end)
-          .export(outputPath: outPath);
+      final info = await VideoCompress.compressVideo(
+        widget.media.file.path,
+        quality: VideoQuality.Res1920x1080Quality,
+        includeAudio: true,
+        startTime: startSec.round(),
+        duration: durationSec.round(),
+      );
 
+      final trimmedPath = info?.file?.path;
       if (!mounted) return;
 
-      if (trimmed == null) {
-        setState(() => _exporting = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Não foi possível cortar o vídeo. Tente novamente.')),
-        );
-        unawaited(_preview.play());
+      if (trimmedPath == null) {
+        _failExport('Não foi possível cortar o vídeo. Tente novamente.');
         return;
       }
 
       Navigator.of(context).pop(
-        widget.media.copyWith(file: File(trimmed), duration: _window),
+        widget.media.copyWith(file: File(trimmedPath), duration: _end - _start),
       );
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _exporting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Não foi possível cortar o vídeo. Tente novamente.')),
-      );
-      unawaited(_preview.play());
+      _failExport('Não foi possível cortar o vídeo. Tente novamente.');
     }
   }
+
+  void _failExport(String message) {
+    setState(() => _exporting = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    unawaited(_preview.play());
+  }
+
+  // --- UI --------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -243,13 +276,10 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final stripWidth = constraints.maxWidth - 32;
-        final windowFraction =
-            _total.inMilliseconds == 0 ? 1.0 : _window.inMilliseconds / _total.inMilliseconds;
-        final windowWidth =
-            (stripWidth * windowFraction).clamp(_handleWidth * 2, stripWidth).toDouble();
-        final startFraction =
-            _total.inMilliseconds == 0 ? 0.0 : _start.inMilliseconds / _total.inMilliseconds;
-        final windowLeft = stripWidth * startFraction;
+        final totalMs = _total.inMilliseconds == 0 ? 1 : _total.inMilliseconds;
+        final leftPx = (_start.inMilliseconds / totalMs * stripWidth).clamp(0.0, stripWidth);
+        final rightPx = (_end.inMilliseconds / totalMs * stripWidth).clamp(0.0, stripWidth);
+        final windowWidth = (rightPx - leftPx).clamp(_handleWidth * 2, stripWidth);
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -261,55 +291,66 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
                 Row(
                   children: List.generate(_thumbCount, (i) {
                     return Expanded(
-                      child: ClipRRect(
-                        borderRadius: i == 0
-                            ? const BorderRadius.horizontal(left: Radius.circular(8))
-                            : i == _thumbCount - 1
-                                ? const BorderRadius.horizontal(right: Radius.circular(8))
-                                : BorderRadius.zero,
-                        child: _thumbs[i] == null
-                            ? Container(color: Colors.white12)
-                            : Image.file(_thumbs[i]!, fit: BoxFit.cover, height: _stripHeight),
-                      ),
+                      child: _thumbs[i] == null
+                          ? Container(color: Colors.white12)
+                          : Image.memory(_thumbs[i]!, fit: BoxFit.cover, height: _stripHeight),
                     );
                   }),
                 ),
                 // Sombreamento fora da janela selecionada.
                 Positioned(
                   left: 0,
-                  width: windowLeft,
+                  width: leftPx,
                   top: 0,
                   bottom: 0,
                   child: Container(color: Colors.black54),
                 ),
                 Positioned(
-                  left: windowLeft + windowWidth,
+                  left: rightPx,
                   right: 0,
                   top: 0,
                   bottom: 0,
                   child: Container(color: Colors.black54),
                 ),
-                // Janela arrastável.
+                // Corpo da janela (arrasta para mover).
                 Positioned(
-                  left: windowLeft,
+                  left: leftPx,
                   width: windowWidth,
                   top: 0,
                   bottom: 0,
                   child: GestureDetector(
-                    onHorizontalDragUpdate: (d) => _onWindowDrag(d.delta.dx, stripWidth),
+                    onHorizontalDragUpdate: (d) => _move(d.delta.dx, stripWidth),
                     child: Container(
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.white, width: 3),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          _handle(),
-                          _handle(),
-                        ],
+                        border: Border.symmetric(
+                          horizontal: BorderSide(color: Colors.white, width: 3),
+                        ),
                       ),
                     ),
+                  ),
+                ),
+                // Alça esquerda (redimensiona início).
+                Positioned(
+                  left: leftPx,
+                  width: _handleWidth,
+                  top: 0,
+                  bottom: 0,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragUpdate: (d) => _resizeStart(d.delta.dx, stripWidth),
+                    child: _handle(left: true),
+                  ),
+                ),
+                // Alça direita (redimensiona fim).
+                Positioned(
+                  left: rightPx - _handleWidth,
+                  width: _handleWidth,
+                  top: 0,
+                  bottom: 0,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onHorizontalDragUpdate: (d) => _resizeEnd(d.delta.dx, stripWidth),
+                    child: _handle(left: false),
                   ),
                 ),
               ],
@@ -320,18 +361,22 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
     );
   }
 
-  Widget _handle() {
+  Widget _handle({required bool left}) {
     return Container(
-      width: _handleWidth,
-      decoration: const BoxDecoration(color: Colors.white),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: left
+            ? const BorderRadius.horizontal(left: Radius.circular(8))
+            : const BorderRadius.horizontal(right: Radius.circular(8)),
+      ),
       child: const Center(
-        child: Icon(Icons.drag_indicator, color: Colors.black54, size: 14),
+        child: Icon(Icons.drag_indicator, color: Colors.black54, size: 16),
       ),
     );
   }
 
   Widget _buildDurationHint() {
-    final windowSecs = _window.inSeconds;
+    final windowSecs = (_end - _start).inSeconds;
     final startSecs = _start.inSeconds;
     return Text(
       'Trecho de ${windowSecs}s • a partir de ${startSecs}s',
