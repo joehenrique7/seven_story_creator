@@ -1,3 +1,12 @@
+## 0.1.18
+
+* O corte no `StoryTrimmerPage` passou a chamar `EasyVideoEditorPlatform.instance.trimVideo()` direto, no lugar do `VideoEditorBuilder`. O `export()` do builder tem um `catch (_) => null` que escondia o motivo real de qualquer falha no corte.
+* `PlatformException` do corte agora é logada com `code` e `message` (no Android isso expõe a mensagem do Media3; no iOS o plugin ainda devolve `null` sem detalhe).
+* Log de diagnóstico antes do corte com caminho, existência, tamanho do arquivo e a janela `start`/`end` escolhida.
+* Removida a cópia intermediária para um `outputPath` próprio — o nativo já devolve o arquivo num diretório temporário, e o `File.copy` do builder era mais um ponto de falha silenciosa.
+
+> Nota: o corte usa `AVAssetExportPresetHighestQuality`, que re-codifica o vídeo. O Simulador do iOS não tem encoder por hardware, então o corte falha lá e funciona no aparelho.
+
 ## 0.1.12
 
 * Melhoria de UX: a permissão de fotos deixou de ser solicitada automaticamente ao abrir a câmera de story. Agora o diálogo do sistema só aparece quando o usuário toca no atalho da galeria. A miniatura da galeria só é pré-carregada quando a permissão já foi concedida (via `GalleryService.hasPermission`, que consulta o estado sem disparar o prompt).

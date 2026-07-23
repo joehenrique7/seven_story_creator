@@ -4,8 +4,7 @@ import 'dart:typed_data';
 
 import 'package:easy_video_editor/easy_video_editor.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:uuid/uuid.dart';
+import 'package:flutter/services.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:video_player/video_player.dart';
 
@@ -179,20 +178,31 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
       if (startMs < 0) startMs = 0;
       if (endMs <= startMs) endMs = startMs + widget.minDuration.inMilliseconds;
 
-      final dir = await getTemporaryDirectory();
-      final outPath = '${dir.path}/${const Uuid().v4()}.mp4';
+      debugPrint(
+        '[StoryTrimmer] trim src=${widget.media.file.path} '
+        'existe=${widget.media.file.existsSync()} '
+        'bytes=${widget.media.file.existsSync() ? widget.media.file.lengthSync() : -1} '
+        'totalMs=$totalMs startMs=$startMs endMs=$endMs',
+      );
 
+      // Chamada direta na platform interface: o `VideoEditorBuilder.export()`
+      // tem um `catch (_) => null` que esconde o motivo real da falha.
       // AVAssetExportSession / Media3 preservam o áudio dentro do timeRange.
-      final trimmedPath = await VideoEditorBuilder(videoPath: widget.media.file.path)
-          .trim(startTimeMs: startMs, endTimeMs: endMs)
-          .export(outputPath: outPath);
+      final trimmedPath = await EasyVideoEditorPlatform.instance.trimVideo(
+        widget.media.file.path,
+        startMs,
+        endMs,
+      );
 
       if (!mounted) return;
 
       if (trimmedPath == null) {
+        debugPrint('[StoryTrimmer] trimVideo retornou null (erro engolido no nativo iOS)');
         _failExport('Não foi possível cortar o vídeo. Tente novamente.');
         return;
       }
+
+      debugPrint('[StoryTrimmer] trim ok -> $trimmedPath');
 
       Navigator.of(context).pop(
         widget.media.copyWith(
@@ -200,7 +210,13 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
           duration: Duration(milliseconds: endMs - startMs),
         ),
       );
-    } catch (e) {
+    } on PlatformException catch (e) {
+      debugPrint('[StoryTrimmer] PlatformException ${e.code}: ${e.message} | ${e.details}');
+      if (!mounted) return;
+      _failExport('Não foi possível cortar o vídeo. Tente novamente.');
+    } catch (e, s) {
+      debugPrint('[StoryTrimmer] falha ao cortar: $e');
+      debugPrint('$s');
       if (!mounted) return;
       _failExport('Não foi possível cortar o vídeo. Tente novamente.');
     }
