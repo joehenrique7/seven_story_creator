@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:easy_video_editor/easy_video_editor.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:video_player/video_player.dart';
 
@@ -165,18 +168,25 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
     await _preview.pause();
 
     try {
-      final startSec = _start.inMilliseconds / 1000.0;
-      final durationSec = (_end - _start).inMilliseconds / 1000.0;
+      final totalMs = _total.inMilliseconds;
+      var startMs = _start.inMilliseconds;
+      // Margem de segurança: o corte nativo exige endTimeMs <= duração real do
+      // asset, e arredondamentos podem deixar o fim 1ms além. Recuar ~100ms
+      // evita o erro sem impacto perceptível.
+      var endMs = _end.inMilliseconds;
+      final safeMaxEnd = totalMs - 100;
+      if (endMs > safeMaxEnd) endMs = safeMaxEnd;
+      if (startMs < 0) startMs = 0;
+      if (endMs <= startMs) endMs = startMs + widget.minDuration.inMilliseconds;
 
-      final info = await VideoCompress.compressVideo(
-        widget.media.file.path,
-        quality: VideoQuality.Res1920x1080Quality,
-        includeAudio: true,
-        startTime: startSec.round(),
-        duration: durationSec.round(),
-      );
+      final dir = await getTemporaryDirectory();
+      final outPath = '${dir.path}/${const Uuid().v4()}.mp4';
 
-      final trimmedPath = info?.file?.path;
+      // AVAssetExportSession / Media3 preservam o áudio dentro do timeRange.
+      final trimmedPath = await VideoEditorBuilder(videoPath: widget.media.file.path)
+          .trim(startTimeMs: startMs, endTimeMs: endMs)
+          .export(outputPath: outPath);
+
       if (!mounted) return;
 
       if (trimmedPath == null) {
@@ -185,7 +195,10 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
       }
 
       Navigator.of(context).pop(
-        widget.media.copyWith(file: File(trimmedPath), duration: _end - _start),
+        widget.media.copyWith(
+          file: File(trimmedPath),
+          duration: Duration(milliseconds: endMs - startMs),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
