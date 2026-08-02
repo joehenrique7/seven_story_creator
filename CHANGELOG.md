@@ -1,3 +1,10 @@
+## 0.1.19
+
+* A galeria do story deixou de mostrar só o álbum "Recentes". O `GalleryService.fetchAlbums()` não usa mais `onlyAll: true` — devolve todos os álbuns e coleções do aparelho, com "Recentes" sempre em primeiro.
+* A bottom sheet da galeria ganhou seletor de álbum no topo (nome do álbum + seta), listando cada coleção com miniatura e contagem de itens.
+* Acesso limitado (iOS e Android 14+): quando o usuário liberou só algumas fotos, aparece um aviso com o botão "Gerenciar", que abre o seletor do sistema (`PhotoManager.presentLimited()`) e recarrega a galeria.
+* A miniatura da galeria na câmera usa `fetchRecentAlbum()`, que continua consultando só o álbum "Recentes" — sem varrer as coleções do usuário à toa.
+
 ## 0.1.18
 
 * O corte no `StoryTrimmerPage` passou a chamar `EasyVideoEditorPlatform.instance.trimVideo()` direto, no lugar do `VideoEditorBuilder`. O `export()` do builder tem um `catch (_) => null` que escondia o motivo real de qualquer falha no corte.

@@ -197,7 +197,7 @@ class _StoryCapturePageState extends State<StoryCapturePage> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => _GallerySheet(album: albums.first, gallery: _gallery),
+      builder: (_) => _GallerySheet(albums: albums, gallery: _gallery),
     );
     if (!mounted || selected == null) return;
 
@@ -293,9 +293,9 @@ class _GalleryThumbState extends State<_GalleryThumb> {
 
   Future<void> _loadLatest() async {
     if (!await widget.gallery.hasPermission() || !mounted) return;
-    final albums = await widget.gallery.fetchAlbums();
-    if (albums.isEmpty || !mounted) return;
-    final assets = await widget.gallery.fetchAssets(albums.first, pageSize: 1);
+    final album = await widget.gallery.fetchRecentAlbum();
+    if (album == null || !mounted) return;
+    final assets = await widget.gallery.fetchAssets(album, pageSize: 1);
     if (assets.isNotEmpty && mounted) setState(() => _latest = assets.first);
   }
 
@@ -325,9 +325,9 @@ class _GalleryThumbState extends State<_GalleryThumb> {
 // ---------------------------------------------------------------------------
 
 class _GallerySheet extends StatefulWidget {
-  const _GallerySheet({required this.album, required this.gallery});
+  const _GallerySheet({required this.albums, required this.gallery});
 
-  final AssetPathEntity album;
+  final List<AssetPathEntity> albums;
   final GalleryService gallery;
 
   @override
@@ -337,22 +337,32 @@ class _GallerySheet extends StatefulWidget {
 class _GallerySheetState extends State<_GallerySheet> {
   static const int _pageSize = 60;
 
+  late List<AssetPathEntity> _albums = widget.albums;
+  late AssetPathEntity _album = widget.albums.first;
   final List<AssetEntity> _assets = [];
   int _page = 0;
   bool _loading = false;
   bool _hasMore = true;
+  bool _choosingAlbum = false;
+  bool _limited = false;
 
   @override
   void initState() {
     super.initState();
     _loadMore();
+    _checkLimited();
+  }
+
+  Future<void> _checkLimited() async {
+    final limited = await widget.gallery.isLimited();
+    if (mounted) setState(() => _limited = limited);
   }
 
   Future<void> _loadMore() async {
     if (_loading || !_hasMore) return;
     _loading = true;
     final batch = await widget.gallery.fetchAssets(
-      widget.album,
+      _album,
       page: _page,
       pageSize: _pageSize,
     );
@@ -363,6 +373,27 @@ class _GallerySheetState extends State<_GallerySheet> {
       _hasMore = batch.length == _pageSize;
       _loading = false;
     });
+  }
+
+  void _selectAlbum(AssetPathEntity album) {
+    setState(() {
+      _album = album;
+      _choosingAlbum = false;
+      _assets.clear();
+      _page = 0;
+      _hasMore = true;
+      _loading = false;
+    });
+    _loadMore();
+  }
+
+  Future<void> _manageLimited() async {
+    await widget.gallery.manageLimitedAccess();
+    final albums = await widget.gallery.fetchAlbums();
+    if (!mounted || albums.isEmpty) return;
+    setState(() => _albums = albums);
+    _selectAlbum(albums.first);
+    _checkLimited();
   }
 
   @override
@@ -388,64 +419,221 @@ class _GallerySheetState extends State<_GallerySheet> {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
+                _buildHeader(),
+                if (_limited) _buildLimitedBanner(),
                 Expanded(
-                  child: GridView.builder(
-                    controller: scrollController,
-                    padding: const EdgeInsets.all(4),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 2,
-                      mainAxisSpacing: 2,
-                    ),
-                    itemCount: _assets.length + (_hasMore ? 1 : 0),
-                    itemBuilder: (context, i) {
-                      if (i >= _assets.length) {
-                        _loadMore();
-                        return const ColoredBox(
-                          color: Colors.black26,
-                          child: Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white54,
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-                      final asset = _assets[i];
-                      return GestureDetector(
-                        onTap: () => Navigator.of(context).pop(asset),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            _AssetThumb(
-                              asset: asset,
-                              size: const ThumbnailSize(200, 200),
-                            ),
-                            if (asset.type == AssetType.video)
-                              const Align(
-                                alignment: Alignment.bottomRight,
-                                child: Padding(
-                                  padding: EdgeInsets.all(4),
-                                  child: Icon(Icons.videocam,
-                                      color: Colors.white, size: 18),
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                  child: _choosingAlbum
+                      ? _buildAlbumList(scrollController)
+                      : _buildAssetGrid(scrollController),
                 ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => setState(() => _choosingAlbum = !_choosingAlbum),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        widget.gallery.albumTitle(_album),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      _choosingAlbum
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 24),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLimitedBanner() {
+    return Container(
+      width: double.infinity,
+      color: Colors.white10,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Você liberou apenas algumas fotos para o app.',
+              style: TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ),
+          TextButton(
+            onPressed: _manageLimited,
+            child: const Text(
+              'Gerenciar',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAlbumList(ScrollController scrollController) {
+    return ListView.builder(
+      controller: scrollController,
+      itemCount: _albums.length,
+      itemBuilder: (context, i) {
+        final album = _albums[i];
+        return _AlbumTile(
+          album: album,
+          title: widget.gallery.albumTitle(album),
+          selected: album.id == _album.id,
+          onTap: () => _selectAlbum(album),
+        );
+      },
+    );
+  }
+
+  Widget _buildAssetGrid(ScrollController scrollController) {
+    return GridView.builder(
+      controller: scrollController,
+      padding: const EdgeInsets.all(4),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+      ),
+      itemCount: _assets.length + (_hasMore ? 1 : 0),
+      itemBuilder: (context, i) {
+        if (i >= _assets.length) {
+          _loadMore();
+          return const ColoredBox(
+            color: Colors.black26,
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white54,
+                ),
+              ),
+            ),
+          );
+        }
+        final asset = _assets[i];
+        return GestureDetector(
+          onTap: () => Navigator.of(context).pop(asset),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _AssetThumb(asset: asset, size: const ThumbnailSize(200, 200)),
+              if (asset.type == AssetType.video)
+                const Align(
+                  alignment: Alignment.bottomRight,
+                  child: Padding(
+                    padding: EdgeInsets.all(4),
+                    child: Icon(Icons.videocam, color: Colors.white, size: 18),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+class _AlbumTile extends StatelessWidget {
+  const _AlbumTile({
+    required this.album,
+    required this.title,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final AssetPathEntity album;
+  final String title;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: FutureBuilder<List<AssetEntity>>(
+            future: album.getAssetListPaged(page: 0, size: 1),
+            builder: (context, snap) {
+              final assets = snap.data;
+              if (assets == null || assets.isEmpty) {
+                return const ColoredBox(color: Colors.white12);
+              }
+              final asset = assets.first;
+              return _AssetThumb(
+                asset: asset,
+                size: const ThumbnailSize(100, 100),
+              );
+            },
+          ),
+        ),
+      ),
+      title: Text(
+        title,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+        ),
+      ),
+      subtitle: FutureBuilder<int>(
+        future: album.assetCountAsync,
+        builder: (context, snap) => Text(
+          '${snap.data ?? 0}',
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+      ),
+      trailing: selected
+          ? const Icon(Icons.check, color: Colors.white, size: 20)
+          : null,
     );
   }
 }
