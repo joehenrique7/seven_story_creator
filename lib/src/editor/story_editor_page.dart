@@ -227,8 +227,8 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
             child: Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()
-                ..translate(_bgOffset.dx, _bgOffset.dy)
-                ..scale(_bgScale),
+                ..translateByDouble(_bgOffset.dx, _bgOffset.dy, 0, 1)
+                ..scaleByDouble(_bgScale, _bgScale, _bgScale, 1),
               child: _mediaBackground(),
             ),
           ),
@@ -265,8 +265,7 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
         return GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: () => _ctrl.selectElement(null),
-          onScaleStart: (_) =>
-              _bgBaseline = (scale: _bgScale, offset: _bgOffset),
+          onScaleStart: (_) => _bgBaseline = (scale: _bgScale, offset: _bgOffset),
           onScaleUpdate: (d) => _onBgScaleUpdate(d, size),
           onScaleEnd: (_) => _bgBaseline = null,
         );
@@ -519,15 +518,13 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
 
   Future<File> _exportCanvas() async {
     if (widget.media.type == StoryType.photo) {
-      final boundary = _repaintKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary = _repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) throw StateError('RepaintBoundary not mounted');
       final image = await boundary.toImage(pixelRatio: 2.5);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) throw StateError('toByteData returned null');
       final dir = await getTemporaryDirectory();
-      final tmp = File('${dir.path}/${const Uuid().v4()}.png')
-        ..writeAsBytesSync(byteData.buffer.asUint8List());
+      final tmp = File('${dir.path}/${const Uuid().v4()}.png')..writeAsBytesSync(byteData.buffer.asUint8List());
       return _compressor.compressImage(tmp);
     } else {
       return _compressor.compressVideo(widget.media.file);
@@ -627,10 +624,38 @@ class _StickerPicker extends StatelessWidget {
   final void Function(String) onSelected;
 
   static const _emojis = [
-    '😀', '😂', '🥰', '😎', '🤩', '😜', '🤪', '😍',
-    '🔥', '⭐', '💫', '✨', '❤️', '💕', '💯', '👍',
-    '🏆', '⚽', '🏐', '🎯', '🎉', '🎊', '🎈', '🏅',
-    '🌟', '🌈', '🌊', '🌺', '💪', '🙌', '👏', '🤙',
+    '😀',
+    '😂',
+    '🥰',
+    '😎',
+    '🤩',
+    '😜',
+    '🤪',
+    '😍',
+    '🔥',
+    '⭐',
+    '💫',
+    '✨',
+    '❤️',
+    '💕',
+    '💯',
+    '👍',
+    '🏆',
+    '⚽',
+    '🏐',
+    '🎯',
+    '🎉',
+    '🎊',
+    '🎈',
+    '🏅',
+    '🌟',
+    '🌈',
+    '🌊',
+    '🌺',
+    '💪',
+    '🙌',
+    '👏',
+    '🤙',
   ];
 
   @override

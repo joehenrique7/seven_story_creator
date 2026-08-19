@@ -147,6 +147,7 @@ class StoryCaptureController extends ChangeNotifier {
     _isFrontCamera = !_isFrontCamera;
     camState.switchCameraSensor(
       aspectRatio: CameraAspectRatios.ratio_16_9,
+      flash: _cameraFlashMode,
     );
     notifyListeners();
   }
@@ -158,14 +159,15 @@ class StoryCaptureController extends ChangeNotifier {
     notifyListeners();
   }
 
+  FlashMode get _cameraFlashMode => switch (_flashMode) {
+        StoryFlashMode.off => FlashMode.none,
+        StoryFlashMode.auto => FlashMode.auto,
+        StoryFlashMode.on => FlashMode.on,
+        StoryFlashMode.always => FlashMode.always,
+      };
+
   void _applyFlash() {
-    final FlashMode mode = switch (_flashMode) {
-      StoryFlashMode.off => FlashMode.none,
-      StoryFlashMode.auto => FlashMode.auto,
-      StoryFlashMode.on => FlashMode.on,
-      StoryFlashMode.always => FlashMode.always,
-    };
-    _cameraState?.sensorConfig.setFlashMode(mode);
+    _cameraState?.sensorConfig.setFlashMode(_cameraFlashMode);
   }
 
   void _setState(CaptureState s) {

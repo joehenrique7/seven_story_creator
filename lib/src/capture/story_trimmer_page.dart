@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:easy_video_editor/easy_video_editor.dart';
 import 'package:flutter/material.dart';
@@ -292,8 +291,7 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
             alignment: Alignment.center,
             children: [
               VideoPlayer(_preview),
-              if (!_preview.value.isPlaying)
-                const Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 64),
+              if (!_preview.value.isPlaying) const Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 64),
             ],
           ),
         ),
@@ -394,9 +392,8 @@ class _StoryTrimmerPageState extends State<StoryTrimmerPage> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: left
-            ? const BorderRadius.horizontal(left: Radius.circular(8))
-            : const BorderRadius.horizontal(right: Radius.circular(8)),
+        borderRadius:
+            left ? const BorderRadius.horizontal(left: Radius.circular(8)) : const BorderRadius.horizontal(right: Radius.circular(8)),
       ),
       child: const Center(
         child: Icon(Icons.drag_indicator, color: Colors.black54, size: 16),

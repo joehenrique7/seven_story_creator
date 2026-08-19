@@ -99,7 +99,7 @@ class TextElement extends StoryElement {
   Map<String, dynamic> toJson() => {
         ..._baseJson(),
         'text': text,
-        'colorValue': color.value,
+        'colorValue': color.toARGB32(),
         'fontSize': fontSize,
         'fontFamily': fontFamily,
         'hasShadow': hasShadow,
@@ -228,7 +228,7 @@ class DrawingElement extends StoryElement {
   Map<String, dynamic> toJson() => {
         ..._baseJson(),
         'points': points.map((o) => {'dx': o.dx, 'dy': o.dy}).toList(),
-        'colorValue': color.value,
+        'colorValue': color.toARGB32(),
         'strokeWidth': strokeWidth,
         'style': style.name,
       };
