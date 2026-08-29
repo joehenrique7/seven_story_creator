@@ -24,6 +24,7 @@ class _StoryCapturePageState extends State<StoryCapturePage> {
   late final StoryCaptureController _controller;
   final GalleryService _gallery = GalleryService();
   _CameraAccess _access = _CameraAccess.checking;
+  bool _popped = false;
 
   @override
   void initState() {
@@ -186,7 +187,22 @@ class _StoryCapturePageState extends State<StoryCapturePage> {
       };
 
   void _onCaptured(StoryMedia? media) {
-    if (media != null) Navigator.of(context).pop(media);
+    if (media != null) _popWith(media);
+  }
+
+  /// A captura é assíncrona: um segundo toque no botão resolve depois que o
+  /// primeiro já fechou esta página, e o `pop` cairia na rota seguinte — a do
+  /// editor, tipada `File?` — estourando
+  /// `type 'StoryMedia' is not a subtype of type 'File?' of 'result'`.
+  /// Só devolve o resultado enquanto esta página ainda é a rota do topo.
+  void _popWith(StoryMedia media) {
+    if (_popped || !mounted) return;
+
+    final route = ModalRoute.of(context);
+    if (route == null || !route.isCurrent) return;
+
+    _popped = true;
+    Navigator.of(context).pop(media);
   }
 
   Future<void> _onMediaFromGallery() async {
@@ -213,11 +229,11 @@ class _StoryCapturePageState extends State<StoryCapturePage> {
         MaterialPageRoute(builder: (_) => StoryTrimmerPage(media: media)),
       );
       if (!mounted || trimmed == null) return;
-      Navigator.of(context).pop(trimmed);
+      _popWith(trimmed);
       return;
     }
 
-    Navigator.of(context).pop(media);
+    _popWith(media);
   }
 }
 

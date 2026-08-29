@@ -1,3 +1,8 @@
+## 0.1.22
+
+* Correção do crash `type 'StoryMedia' is not a subtype of type 'File?' of 'result'` (Crashlytics, issue `eeebe7de`). A captura é assíncrona: um segundo toque no botão resolvia depois que o primeiro já havia fechado a `StoryCapturePage`, e o `pop` caía na rota seguinte — a do editor, tipada `File?`.
+* `StoryCapturePage` só devolve o resultado enquanto ainda é a rota do topo (`ModalRoute.isCurrent`) e uma única vez por sessão de captura. Vale também para os dois retornos vindos da galeria (com e sem corte).
+
 ## 0.1.19
 
 * A galeria do story deixou de mostrar só o álbum "Recentes". O `GalleryService.fetchAlbums()` não usa mais `onlyAll: true` — devolve todos os álbuns e coleções do aparelho, com "Recentes" sempre em primeiro.
