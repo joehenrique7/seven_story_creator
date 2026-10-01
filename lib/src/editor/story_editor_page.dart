@@ -19,6 +19,12 @@ import 'widgets/text_layer.dart';
 
 enum _Tool { none, draw, filter }
 
+/// Proporção do story publicado (1080×1920).
+const double _kStoryAspectRatio = 9 / 16;
+
+/// Largura em pixels da imagem exportada; a altura sai da proporção.
+const double _kStoryExportWidth = 1080;
+
 /// Full-screen story editor. Push this page and await a [File] (the exported
 /// story), or null if the user cancelled.
 ///
@@ -67,8 +73,21 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Full-screen canvas
-          RepaintBoundary(key: _repaintKey, child: _canvas()),
+          // Canvas no formato do story (9:16 = 1080×1920). Em telas mais altas
+          // que 9:16 sobra faixa preta embaixo, mas nada da imagem é cortado.
+          SafeArea(
+            bottom: false,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: AspectRatio(
+                aspectRatio: _kStoryAspectRatio,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: RepaintBoundary(key: _repaintKey, child: _canvas()),
+                ),
+              ),
+            ),
+          ),
 
           // Gradient overlay at top for legibility
           Positioned(
@@ -520,7 +539,7 @@ class _StoryEditorPageState extends State<StoryEditorPage> {
     if (widget.media.type == StoryType.photo) {
       final boundary = _repaintKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) throw StateError('RepaintBoundary not mounted');
-      final image = await boundary.toImage(pixelRatio: 2.5);
+      final image = await boundary.toImage(pixelRatio: _kStoryExportWidth / boundary.size.width);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) throw StateError('toByteData returned null');
       final dir = await getTemporaryDirectory();

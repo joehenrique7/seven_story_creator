@@ -1,3 +1,8 @@
+## 0.1.23
+
+* O canvas do editor passou a ser um quadro fixo 9:16 encostado no topo, em vez da tela inteira. Uma imagem 1080×1920 aparece inteira, sem cortar as laterais em telas mais altas que 9:16.
+* A foto exportada sai sempre em 1080×1920: o `pixelRatio` da captura é calculado a partir da largura do quadro, no lugar do valor fixo 2.5.
+
 ## 0.1.22
 
 * Correção do crash `type 'StoryMedia' is not a subtype of type 'File?' of 'result'` (Crashlytics, issue `eeebe7de`). A captura é assíncrona: um segundo toque no botão resolvia depois que o primeiro já havia fechado a `StoryCapturePage`, e o `pop` caía na rota seguinte — a do editor, tipada `File?`.
