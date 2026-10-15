@@ -1,3 +1,7 @@
+## 0.1.24
+
+* Correção do crash `PlatformException(FLASH_UNSUPPORTED, can't set flash for portrait mode)` no iOS (Crashlytics, issue `02936ace`). Ao virar para a câmera frontal com o flash ligado, o `switchCameraSensor` repassava o modo de flash à frontal, que não tem flash. A frontal agora entra com `FlashMode.none`, o ciclo do flash não é aplicado nela, e as falhas da troca de câmera e do flash deixaram de derrubar o app.
+
 ## 0.1.23
 
 * O canvas do editor passou a ser um quadro fixo 9:16 encostado no topo, em vez da tela inteira. Uma imagem 1080×1920 aparece inteira, sem cortar as laterais em telas mais altas que 9:16.

@@ -145,10 +145,12 @@ class StoryCaptureController extends ChangeNotifier {
     final camState = _cameraState;
     if (camState == null) return;
     _isFrontCamera = !_isFrontCamera;
-    camState.switchCameraSensor(
-      aspectRatio: CameraAspectRatios.ratio_16_9,
-      flash: _cameraFlashMode,
-    );
+    camState
+        .switchCameraSensor(
+          aspectRatio: CameraAspectRatios.ratio_16_9,
+          flash: _isFrontCamera ? FlashMode.none : _cameraFlashMode,
+        )
+        .catchError((Object e) => debugPrint('[StoryCapture] falha ao trocar câmera: $e'));
     notifyListeners();
   }
 
@@ -167,7 +169,10 @@ class StoryCaptureController extends ChangeNotifier {
       };
 
   void _applyFlash() {
-    _cameraState?.sensorConfig.setFlashMode(_cameraFlashMode);
+    if (_isFrontCamera) return;
+    _cameraState?.sensorConfig
+        .setFlashMode(_cameraFlashMode)
+        .catchError((Object e) => debugPrint('[StoryCapture] falha ao aplicar flash: $e'));
   }
 
   void _setState(CaptureState s) {
