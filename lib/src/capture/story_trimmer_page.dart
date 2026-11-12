@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:easy_video_editor/easy_video_editor.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:video_compress/video_compress.dart';
 import 'package:video_player/video_player.dart';

@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'capture/models/story_media.dart';
 import 'capture/story_capture_page.dart';
