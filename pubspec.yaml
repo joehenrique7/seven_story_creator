@@ -1,6 +1,6 @@
 name: seven_story_creator
 description: "Seven Story creator: capture, edit, preview, export."
-version: 0.1.24
+version: 0.1.25
 homepage:
 
 environment:
@@ -20,6 +20,7 @@ dependencies:
   uuid: ^4.6.0
   google_fonts: ^8.2.1
   permission_handler: ^13.0.0
+  material_ui: ^1.11.0
 
 dev_dependencies:
   flutter_test:
